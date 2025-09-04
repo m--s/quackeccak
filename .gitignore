@@ -1,8 +1,37 @@
-build
-.idea
-cmake-build-debug
+# Build directories
+build/
+cmake-build-*/
+.ninja_*
+
+# DuckDB specific
 duckdb_unittest_tempdir/
+*.duckdb
+*.duckdb.wal
+*.duckdb_extension
+extension-ci-tools/
+
+# Forge/Foundry
+test/forge/out/
+test/forge/cache/
+test/forge/broadcast/
+
+# IDE/Editor
+.vscode/
+.idea/
+.claude/
+*.swp
+*.swo
+*~
+
+# OS specific
 .DS_Store
-testext
-test/python/__pycache__/
-.Rhistory
+Thumbs.db
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Emscripten/WASM
+*.wasm.map
+emsdk/
