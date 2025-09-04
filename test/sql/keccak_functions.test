@@ -1,0 +1,91 @@
+# name: test/sql/keccak_functions.test
+# description: Test keccak256 function - hashing functionality
+# group: [quackeccak]
+
+require quackeccak
+
+# ========== KECCAK256 TESTS ==========
+
+# Test 1: Empty string
+query I
+SELECT keccak256('') = '0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470';
+----
+true
+
+# Test 2: hello world
+query I
+SELECT keccak256('hello world') = '0x47173285a8d7341e5e972fc677286384f802f8ef42a5ec5f03bbfa254cb01fad';
+----
+true
+
+# Test 3: Hex bytes with even length
+query I
+SELECT keccak256('0xdeadbeef') = '0xd4fd4e189132273036449fc9e11198c739161b4c0116a9a2dccdfa1c492006f1';
+----
+true
+
+# Test 4: Single zero byte
+query I
+SELECT keccak256('0x00') = '0xbc36789e7a1e281436464229828f817d6612f7b477d66591ff96a9e064bcc98a';
+----
+true
+
+# Test 5: 32 zero bytes
+query I
+SELECT keccak256('0x0000000000000000000000000000000000000000000000000000000000000000') = '0x290decd9548b62a8d60345a988386fc84ba6bc95484008f6362f93160ef3e563';
+----
+true
+
+# Test 6: Pangram
+query I
+SELECT keccak256('The quick brown fox jumps over the lazy dog') = '0x4d741b6f1eb29cb2a9b9911c82f56fa8d73b04959d3d9d222895df6c0b28aa15';
+----
+true
+
+# Test 7: UTF-8 bytes (duck emoji)
+query I
+SELECT keccak256('0xf09fa686') = '0xaed18ec64cd5075f8fc3d8caf6c467c754b44bd892dec0206f5e80ab190aa744';
+----
+true
+
+# Test 8: Encoded uint256(123)
+query I
+SELECT keccak256('0x000000000000000000000000000000000000000000000000000000000000007b') = '0x5569044719a1ec3b04d0afa9e7a5310c7c0473331d13dc9fafe143b2c4e8148a';
+----
+true
+
+# Test NULL input
+query I
+SELECT keccak256(NULL) IS NULL;
+----
+true
+
+# Test return format is lowercase with 0x prefix
+query I
+SELECT keccak256('test') LIKE '0x%' AND keccak256('test') = LOWER(keccak256('test'));
+----
+true
+
+# Test case insensitive hex input
+query I
+SELECT keccak256('0xDEADBEEF') = keccak256('0xdeadbeef');
+----
+true
+
+# Test odd-length hex string should throw error (EVM compatibility)
+statement error
+SELECT keccak256('0x123');
+----
+Invalid hex string: odd number of characters after '0x'. EVM requires even-length hex strings (e.g., '0x0123' not '0x123')
+
+# Test that correctly formatted hex works
+query I
+SELECT keccak256('0x0123') = '0x667d3611273365cfb6e64399d5af0bf332ec3e5d6986f76bc7d10839b680eb58';
+----
+true
+
+# Test invalid hex characters
+statement error
+SELECT keccak256('0xgg');
+----
+Invalid hex string: contains non-hex characters

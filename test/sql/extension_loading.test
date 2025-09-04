@@ -1,0 +1,43 @@
+# name: test/sql/extension_loading.test
+# description: Test extension loading and basic function availability
+# group: [quackeccak]
+
+# Test functions don't exist before loading
+statement error
+SELECT keccak256('test');
+----
+Catalog Error: Scalar Function with name keccak256 does not exist!
+
+statement error
+SELECT create2_predict('0x00', '0x00', '0x00');
+----
+Catalog Error: Scalar Function with name create2_predict does not exist!
+
+# Require and load the extension
+require quackeccak
+
+# Verify all functions are available after loading
+query I
+SELECT keccak256('test') IS NOT NULL;
+----
+true
+
+query I
+SELECT create2_predict('0x0000000000000000000000000000000000000001', '0x0000000000000000000000000000000000000000000000000000000000000000', '0xbc36789e7a1e281436464229828f817d6612f7b477d66591ff96a9e064bcc98a') IS NOT NULL;
+----
+true
+
+query I
+SELECT format_salt(0, 0) IS NOT NULL;
+----
+true
+
+query I
+SELECT format_address(0, 0, 0) IS NOT NULL;
+----
+true
+
+query I
+SELECT COUNT(*) > 0 FROM create2_mine('0x0000000000000000000000000000000000000000', '0x0000000000000000000000000000000000000000000000000000000000000000', '0', '100', '0', '0', '0', '0', '0', '0', '100') LIMIT 1;
+----
+true

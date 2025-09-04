@@ -1,0 +1,107 @@
+# name: test/sql/format_functions.test
+# description: Test format_salt and format_address functions - formatting utilities
+# group: [quackeccak]
+
+require quackeccak
+
+# ========== FORMAT FUNCTIONS TESTS ==========
+
+# Test format_salt with zero values
+query I
+SELECT format_salt(0, 0) = '0x0000000000000000000000000000000000000000000000000000000000000000';
+----
+true
+
+# Test format_salt with small values
+query I
+SELECT format_salt(0, 123) = '0x000000000000000000000000000000000000000000000000000000000000007b';
+----
+true
+
+# Test format_salt with larger values
+query I
+SELECT format_salt(1, 0) = '0x0000000000000000000000000000000100000000000000000000000000000000';
+----
+true
+
+# Test format_salt with max values
+query I
+SELECT format_salt(18446744073709551615, 18446744073709551615) = '0x0000000000000000ffffffffffffffff0000000000000000ffffffffffffffff';
+----
+true
+
+# Test format_address with zero values
+query I
+SELECT format_address(0, 0, 0) = '0x0000000000000000000000000000000000000000';
+----
+true
+
+# Test format_address with known values
+query I
+SELECT format_address(0, 0, 1) = '0x0000000000000000000000000000000000000001';
+----
+true
+
+# Test format_address with larger values (1 in hi8 LSB)
+query I  
+SELECT format_address(1, 0, 0) = '0x0000000000000001000000000000000000000000';
+----
+true
+
+# Test format_address with max values
+query I
+SELECT format_address(18446744073709551615, 18446744073709551615, 4294967295) = '0xffffffffffffffffffffffffffffffffffffffff';
+----
+true
+
+# Test format functions return proper hex format
+query I
+SELECT format_salt(0, 1) LIKE '0x%' AND LENGTH(format_salt(0, 1)) = 66;
+----
+true
+
+query I
+SELECT format_address(0, 0, 1) LIKE '0x%' AND LENGTH(format_address(0, 0, 1)) = 42;
+----
+true
+
+# Test format functions are lowercase
+query I
+SELECT format_salt(255, 255) = LOWER(format_salt(255, 255));
+----
+true
+
+query I
+SELECT format_address(255, 255, 255) = LOWER(format_address(255, 255, 255));
+----
+true
+
+# Test format functions with values used in mining
+query I
+SELECT format_salt(0, 1000) = '0x00000000000000000000000000000000000000000000000000000000000003e8';
+----
+true
+
+query I
+SELECT format_address(0, 0, 3735928559) = '0x00000000000000000000000000000000deadbeef';
+----
+true
+
+# Test that format functions are consistent with create2_mine output
+query I
+SELECT format_salt(salt_hi, salt_lo) = salt AND format_address(addr_hi8, addr_mid8, addr_lo4) = address
+FROM create2_mine(
+    '0x4e59b44847b379578588920ca78fbf26c0b4956c',
+    '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef',
+    '0',
+    '1',
+    '0',
+    '0',
+    '0',
+    '0',
+    '0',
+    '0',
+    '100'
+);
+----
+true
