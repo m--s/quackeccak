@@ -6,3 +6,9 @@
 	path = extension-ci-tools
 	url = https://github.com/duckdb/extension-ci-tools
 	branch = main
+[submodule "test/forge/lib/forge-std"]
+	path = test/forge/lib/forge-std
+	url = https://github.com/foundry-rs/forge-std
+[submodule "test/forge/lib/solady"]
+	path = test/forge/lib/solady
+	url = https://github.com/vectorized/solady
