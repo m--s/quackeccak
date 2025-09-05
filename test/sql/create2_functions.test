@@ -1,6 +1,6 @@
 # name: test/sql/create2_functions.test
 # description: Test create2_predict function - CREATE2 address prediction
-# group: [quackeccak]
+# group: [sql]
 
 require quackeccak
 

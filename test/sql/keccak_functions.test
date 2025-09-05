@@ -1,6 +1,6 @@
 # name: test/sql/keccak_functions.test
 # description: Test keccak256 function - hashing functionality
-# group: [quackeccak]
+# group: [sql]
 
 require quackeccak
 

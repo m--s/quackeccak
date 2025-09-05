@@ -1,6 +1,6 @@
 # name: test/sql/extension_loading.test
 # description: Test extension loading and basic function availability
-# group: [quackeccak]
+# group: [sql]
 
 # Test functions don't exist before loading
 statement error

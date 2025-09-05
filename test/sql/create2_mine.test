@@ -1,6 +1,6 @@
 # name: test/sql/create2_mine.test
-# description: Test create2_mine table function - CREATE2 salt mining functionality  
-# group: [quackeccak]
+# description: Test create2_mine table function - CREATE2 salt mining functionality
+# group: [sql]
 
 require quackeccak
 

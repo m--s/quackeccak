@@ -1,6 +1,6 @@
 # name: test/sql/format_functions.test
 # description: Test format_salt and format_address functions - formatting utilities
-# group: [quackeccak]
+# group: [sql]
 
 require quackeccak
 
