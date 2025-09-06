@@ -22,20 +22,27 @@ static uint8_t CountLeadingZeros(uint64_t hi8, uint64_t mid8, uint32_t lo4) {
 			count += 8;
 		} else {
 			// Count leading zero bits in this byte
-			if (byte >= 0x80)
+			if (byte >= 0x80) {
 				return count;
-			if (byte >= 0x40)
+			}
+			if (byte >= 0x40) {
 				return count + 1;
-			if (byte >= 0x20)
+			}
+			if (byte >= 0x20) {
 				return count + 2;
-			if (byte >= 0x10)
+			}
+			if (byte >= 0x10) {
 				return count + 3;
-			if (byte >= 0x08)
+			}
+			if (byte >= 0x08) {
 				return count + 4;
-			if (byte >= 0x04)
+			}
+			if (byte >= 0x04) {
 				return count + 5;
-			if (byte >= 0x02)
+			}
+			if (byte >= 0x02) {
 				return count + 6;
+			}
 			return count + 7;
 		}
 	}
@@ -46,20 +53,27 @@ static uint8_t CountLeadingZeros(uint64_t hi8, uint64_t mid8, uint32_t lo4) {
 		if (byte == 0) {
 			count += 8;
 		} else {
-			if (byte >= 0x80)
+			if (byte >= 0x80) {
 				return count;
-			if (byte >= 0x40)
+			}
+			if (byte >= 0x40) {
 				return count + 1;
-			if (byte >= 0x20)
+			}
+			if (byte >= 0x20) {
 				return count + 2;
-			if (byte >= 0x10)
+			}
+			if (byte >= 0x10) {
 				return count + 3;
-			if (byte >= 0x08)
+			}
+			if (byte >= 0x08) {
 				return count + 4;
-			if (byte >= 0x04)
+			}
+			if (byte >= 0x04) {
 				return count + 5;
-			if (byte >= 0x02)
+			}
+			if (byte >= 0x02) {
 				return count + 6;
+			}
 			return count + 7;
 		}
 	}
@@ -70,20 +84,27 @@ static uint8_t CountLeadingZeros(uint64_t hi8, uint64_t mid8, uint32_t lo4) {
 		if (byte == 0) {
 			count += 8;
 		} else {
-			if (byte >= 0x80)
+			if (byte >= 0x80) {
 				return count;
-			if (byte >= 0x40)
+			}
+			if (byte >= 0x40) {
 				return count + 1;
-			if (byte >= 0x20)
+			}
+			if (byte >= 0x20) {
 				return count + 2;
-			if (byte >= 0x10)
+			}
+			if (byte >= 0x10) {
 				return count + 3;
-			if (byte >= 0x08)
+			}
+			if (byte >= 0x08) {
 				return count + 4;
-			if (byte >= 0x04)
+			}
+			if (byte >= 0x04) {
 				return count + 5;
-			if (byte >= 0x02)
+			}
+			if (byte >= 0x02) {
 				return count + 6;
+			}
 			return count + 7;
 		}
 	}
@@ -101,20 +122,27 @@ static uint8_t CountTrailingZeros(uint64_t hi8, uint64_t mid8, uint32_t lo4) {
 		if (byte == 0) {
 			count += 8;
 		} else {
-			if (byte & 0x01)
+			if (byte & 0x01) {
 				return count;
-			if (byte & 0x02)
+			}
+			if (byte & 0x02) {
 				return count + 1;
-			if (byte & 0x04)
+			}
+			if (byte & 0x04) {
 				return count + 2;
-			if (byte & 0x08)
+			}
+			if (byte & 0x08) {
 				return count + 3;
-			if (byte & 0x10)
+			}
+			if (byte & 0x10) {
 				return count + 4;
-			if (byte & 0x20)
+			}
+			if (byte & 0x20) {
 				return count + 5;
-			if (byte & 0x40)
+			}
+			if (byte & 0x40) {
 				return count + 6;
+			}
 			return count + 7;
 		}
 	}
@@ -125,20 +153,27 @@ static uint8_t CountTrailingZeros(uint64_t hi8, uint64_t mid8, uint32_t lo4) {
 		if (byte == 0) {
 			count += 8;
 		} else {
-			if (byte & 0x01)
+			if (byte & 0x01) {
 				return count;
-			if (byte & 0x02)
+			}
+			if (byte & 0x02) {
 				return count + 1;
-			if (byte & 0x04)
+			}
+			if (byte & 0x04) {
 				return count + 2;
-			if (byte & 0x08)
+			}
+			if (byte & 0x08) {
 				return count + 3;
-			if (byte & 0x10)
+			}
+			if (byte & 0x10) {
 				return count + 4;
-			if (byte & 0x20)
+			}
+			if (byte & 0x20) {
 				return count + 5;
-			if (byte & 0x40)
+			}
+			if (byte & 0x40) {
 				return count + 6;
+			}
 			return count + 7;
 		}
 	}
@@ -149,20 +184,27 @@ static uint8_t CountTrailingZeros(uint64_t hi8, uint64_t mid8, uint32_t lo4) {
 		if (byte == 0) {
 			count += 8;
 		} else {
-			if (byte & 0x01)
+			if (byte & 0x01) {
 				return count;
-			if (byte & 0x02)
+			}
+			if (byte & 0x02) {
 				return count + 1;
-			if (byte & 0x04)
+			}
+			if (byte & 0x04) {
 				return count + 2;
-			if (byte & 0x08)
+			}
+			if (byte & 0x08) {
 				return count + 3;
-			if (byte & 0x10)
+			}
+			if (byte & 0x10) {
 				return count + 4;
-			if (byte & 0x20)
+			}
+			if (byte & 0x20) {
 				return count + 5;
-			if (byte & 0x40)
+			}
+			if (byte & 0x40) {
 				return count + 6;
+			}
 			return count + 7;
 		}
 	}
@@ -174,12 +216,15 @@ static uint8_t CountTrailingZeros(uint64_t hi8, uint64_t mid8, uint32_t lo4) {
 static bool AddressMatchesMask(uint64_t addr_hi8, uint64_t addr_mid8, uint32_t addr_lo4, uint64_t mask_hi8,
                                uint64_t value_hi8, uint64_t mask_mid8, uint64_t value_mid8, uint32_t mask_lo4,
                                uint32_t value_lo4) {
-	if ((addr_hi8 & mask_hi8) != value_hi8)
+	if ((addr_hi8 & mask_hi8) != value_hi8) {
 		return false;
-	if ((addr_mid8 & mask_mid8) != value_mid8)
+	}
+	if ((addr_mid8 & mask_mid8) != value_mid8) {
 		return false;
-	if ((addr_lo4 & mask_lo4) != value_lo4)
+	}
+	if ((addr_lo4 & mask_lo4) != value_lo4) {
 		return false;
+	}
 	return true;
 }
 

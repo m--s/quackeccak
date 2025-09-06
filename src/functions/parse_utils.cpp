@@ -31,12 +31,14 @@ uint64_t ParseUtils::ParseUnsignedInteger(const Value &val, uint64_t default_val
 		return static_cast<uint64_t>(val.GetValue<int8_t>());
 	case LogicalTypeId::VARCHAR: {
 		std::string str = val.GetValue<std::string>();
-		if (str.empty())
+		if (str.empty()) {
 			return default_val;
+		}
 
 		// Special case for "0"
-		if (str == "0")
+		if (str == "0") {
 			return 0;
+		}
 
 		// Handle hex strings
 		if (HexUtils::IsHexString(str)) {
@@ -65,12 +67,14 @@ uint64_t ParseUtils::ParseHex64(const Value &val, uint64_t default_val) {
 		return static_cast<uint64_t>(val.GetValue<int64_t>());
 	case LogicalTypeId::VARCHAR: {
 		std::string str = val.GetValue<std::string>();
-		if (str.empty())
+		if (str.empty()) {
 			return default_val;
+		}
 
 		// Special case for "0"
-		if (str == "0")
+		if (str == "0") {
 			return 0;
+		}
 
 		// Handle hex strings
 		if (HexUtils::IsHexString(str)) {
@@ -103,12 +107,14 @@ uint32_t ParseUtils::ParseHex32(const Value &val, uint32_t default_val) {
 		return static_cast<uint32_t>(val.GetValue<int32_t>());
 	case LogicalTypeId::VARCHAR: {
 		std::string str = val.GetValue<std::string>();
-		if (str.empty())
+		if (str.empty()) {
 			return default_val;
+		}
 
 		// Special case for "0"
-		if (str == "0")
+		if (str == "0") {
 			return 0;
+		}
 
 		// Handle hex strings
 		if (HexUtils::IsHexString(str)) {

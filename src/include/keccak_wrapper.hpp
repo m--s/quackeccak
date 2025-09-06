@@ -6,8 +6,8 @@
 
 // Keccak C interface (from vendor/keccak.c)
 extern "C" {
-void Keccak(unsigned int rate, unsigned int capacity, const unsigned char *input, unsigned long long inputByteLen,
-            unsigned char delimitedSuffix, unsigned char *output, unsigned long long outputByteLen);
+void Keccak(unsigned int rate, unsigned int capacity, const unsigned char *input, uint64_t inputByteLen,
+            unsigned char delimitedSuffix, unsigned char *output, uint64_t outputByteLen);
 }
 
 namespace duckdb {
@@ -47,12 +47,15 @@ public:
 
 	// Utility: Convert hex character to byte value
 	static uint8_t HexCharToByte(char c) {
-		if (c >= '0' && c <= '9')
+		if (c >= '0' && c <= '9') {
 			return c - '0';
-		if (c >= 'a' && c <= 'f')
+}
+		if (c >= 'a' && c <= 'f') {
 			return c - 'a' + 10;
-		if (c >= 'A' && c <= 'F')
+}
+		if (c >= 'A' && c <= 'F') {
 			return c - 'A' + 10;
+}
 		return 0;
 	}
 

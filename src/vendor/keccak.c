@@ -191,11 +191,12 @@ A readable and compact implementation of the Keccak-f[1600] permutation.
  */
 int LFSR86540(uint8_t *LFSR) {
 	int result = ((*LFSR) & 0x01) != 0;
-	if (((*LFSR) & 0x80) != 0)
+	if (((*LFSR) & 0x80) != 0) {
 		/* Primitive polynomial over GF(2): x^8+x^6+x^5+x^4+1 */
 		(*LFSR) = ((*LFSR) << 1) ^ 0x71;
-	else
+	} else {
 		(*LFSR) <<= 1;
+	}
 	return result;
 }
 
@@ -211,14 +212,16 @@ void KeccakF1600_StatePermute(void *state) {
 			tKeccakLane C[5], D;
 
 			/* Compute the parity of the columns */
-			for (x = 0; x < 5; x++)
+			for (x = 0; x < 5; x++) {
 				C[x] = readLane(x, 0) ^ readLane(x, 1) ^ readLane(x, 2) ^ readLane(x, 3) ^ readLane(x, 4);
+			}
 			for (x = 0; x < 5; x++) {
 				/* Compute the θ effect for a given column */
 				D = C[(x + 4) % 5] ^ ROL64(C[(x + 1) % 5], 1);
 				/* Add the θ effect to the whole column */
-				for (y = 0; y < 5; y++)
+				for (y = 0; y < 5; y++) {
 					XORLane(x, y, D);
+				}
 			}
 		}
 
@@ -247,19 +250,22 @@ void KeccakF1600_StatePermute(void *state) {
 			tKeccakLane temp[5];
 			for (y = 0; y < 5; y++) {
 				/* Take a copy of the plane */
-				for (x = 0; x < 5; x++)
+				for (x = 0; x < 5; x++) {
 					temp[x] = readLane(x, y);
+				}
 				/* Compute χ on the plane */
-				for (x = 0; x < 5; x++)
+				for (x = 0; x < 5; x++) {
 					writeLane(x, y, temp[x] ^ ((~temp[(x + 1) % 5]) & temp[(x + 2) % 5]));
+				}
 			}
 		}
 
 		{ /* === ι step (see [Keccak Reference, Section 2.3.5]) === */
 			for (j = 0; j < 7; j++) {
 				unsigned int bitPosition = (1 << j) - 1; /* 2^j-1 */
-				if (LFSR86540(&LFSRstate))
+				if (LFSR86540(&LFSRstate)) {
 					XORLane(0, 0, (tKeccakLane)1 << bitPosition);
+				}
 			}
 		}
 	}
@@ -282,8 +288,9 @@ void Keccak(unsigned int rate, unsigned int capacity, const unsigned char *input
 	unsigned int blockSize = 0;
 	unsigned int i;
 
-	if (((rate + capacity) != 1600) || ((rate % 8) != 0))
+	if (((rate + capacity) != 1600) || ((rate % 8) != 0)) {
 		return;
+	}
 
 	/* === Initialize the state === */
 	memset(state, 0, sizeof(state));
@@ -291,8 +298,9 @@ void Keccak(unsigned int rate, unsigned int capacity, const unsigned char *input
 	/* === Absorb all the input blocks === */
 	while (inputByteLen > 0) {
 		blockSize = MIN(inputByteLen, rateInBytes);
-		for (i = 0; i < blockSize; i++)
+		for (i = 0; i < blockSize; i++) {
 			state[i] ^= input[i];
+		}
 		input += blockSize;
 		inputByteLen -= blockSize;
 
@@ -307,8 +315,9 @@ void Keccak(unsigned int rate, unsigned int capacity, const unsigned char *input
 	 */
 	state[blockSize] ^= delimitedSuffix;
 	/* If the first bit of padding is at position rate-1, we need a whole new block for the second bit of padding */
-	if (((delimitedSuffix & 0x80) != 0) && (blockSize == (rateInBytes - 1)))
+	if (((delimitedSuffix & 0x80) != 0) && (blockSize == (rateInBytes - 1))) {
 		KeccakF1600_StatePermute(state);
+	}
 	/* Add the second bit of padding */
 	state[rateInBytes - 1] ^= 0x80;
 	/* Switch to the squeezing phase */
@@ -321,7 +330,8 @@ void Keccak(unsigned int rate, unsigned int capacity, const unsigned char *input
 		output += blockSize;
 		outputByteLen -= blockSize;
 
-		if (outputByteLen > 0)
+		if (outputByteLen > 0) {
 			KeccakF1600_StatePermute(state);
+		}
 	}
 }

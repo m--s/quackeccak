@@ -12,7 +12,7 @@ std::string HexUtils::FormatAddress(const uint8_t *address_bytes) {
 	hex_output[0] = '0';
 	hex_output[1] = 'x';
 	for (int i = 0; i < 20; i++) {
-		std::snprintf(hex_output + 2 + i * 2, 3, "%02x", address_bytes[i]);
+		std::snprintf(hex_output + 2 + static_cast<ptrdiff_t>(i) * 2, 3, "%02x", address_bytes[i]);
 	}
 	hex_output[42] = '\0';
 	return std::string(hex_output);
@@ -105,11 +105,13 @@ bool HexUtils::IsHexString(const std::string &s) {
 // Template specializations
 template <>
 uint64_t HexUtils::ParseHex<uint64_t>(const std::string &s, uint64_t default_val) {
-	if (s.empty())
+	if (s.empty()) {
 		return default_val;
+	}
 
-	if (s == "0")
+	if (s == "0") {
 		return 0;
+	}
 
 	if (IsHexString(s)) {
 		return std::stoull(s.substr(2), nullptr, 16);
@@ -120,11 +122,13 @@ uint64_t HexUtils::ParseHex<uint64_t>(const std::string &s, uint64_t default_val
 
 template <>
 uint32_t HexUtils::ParseHex<uint32_t>(const std::string &s, uint32_t default_val) {
-	if (s.empty())
+	if (s.empty()) {
 		return default_val;
+}
 
-	if (s == "0")
+	if (s == "0") {
 		return 0;
+}
 
 	if (IsHexString(s)) {
 		return std::stoul(s.substr(2), nullptr, 16);
