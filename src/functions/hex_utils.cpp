@@ -124,11 +124,11 @@ template <>
 uint32_t HexUtils::ParseHex<uint32_t>(const std::string &s, uint32_t default_val) {
 	if (s.empty()) {
 		return default_val;
-}
+	}
 
 	if (s == "0") {
 		return 0;
-}
+	}
 
 	if (IsHexString(s)) {
 		return std::stoul(s.substr(2), nullptr, 16);
