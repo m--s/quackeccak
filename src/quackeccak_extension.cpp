@@ -1,19 +1,17 @@
 #define DUCKDB_EXTENSION_MAIN
 
 #include "quackeccak_extension.hpp"
-#include "keccak_functions.hpp"
-#include "create2_functions.hpp"
-#include "create2_mine.hpp"
-#include "format_functions.hpp"
+#include "types/evm_types.hpp"
+#include "keccak/keccak.hpp"
+#include "create2.hpp"
 #include "duckdb.hpp"
 
 namespace duckdb {
 
 static void LoadInternal(DatabaseInstance &instance) {
+	RegisterEvmTypes(instance);
 	RegisterKeccakFunctions(instance);
 	RegisterCreate2Functions(instance);
-	RegisterCreate2Mine(instance);
-	RegisterFormatFunctions(instance);
 }
 
 void QuackeccakExtension::Load(DuckDB &db) {

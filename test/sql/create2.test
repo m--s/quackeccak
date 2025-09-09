@@ -1,0 +1,86 @@
+# name: test/sql/create2.test
+# description: Test create2_predict and create2_mine functions
+# group: [sql]
+
+require quackeccak
+
+# Test basic prediction
+query I
+SELECT create2_predict(
+    '0x0000000000000000000000000000000000000001'::ADDRESS,
+    '0x0000000000000000000000000000000000000000000000000000000000000000'::BYTES32,
+    '0xbc36789e7a1e281436464229828f817d6612f7b477d66591ff96a9e064bcc98a'::BYTES32
+) IS NOT NULL;
+----
+true
+
+# Test numeric salt overload
+query I
+SELECT create2_predict(
+    '0x4e59b44847b379578588920cA78FbF26c0B4956C'::ADDRESS,
+    12345::BIGINT,
+    '0xbc36789e7a1e281436464229828f817d6612f7b477d66591ff96a9e064bcc98a'::BYTES32
+) IS NOT NULL;
+----
+true
+
+# Test NULL handling
+query I
+SELECT create2_predict(NULL::ADDRESS, '0x00'::BYTES32, '0x00'::BYTES32) IS NULL;
+----
+true
+
+# ========== CREATE2_MINE TESTS ==========
+
+# Test basic mining
+query I
+SELECT COUNT(*) FROM create2_mine(
+    '0x0000000000000000000000000000000000000000'::ADDRESS,
+    '0x0000000000000000000000000000000000000000000000000000000000000000'::BYTES32,
+    0,
+    100
+);
+----
+100
+
+# Test salt range
+query II
+SELECT MIN(salt), MAX(salt) FROM create2_mine(
+    '0x4e59b44847b379578588920cA78FbF26c0B4956C'::ADDRESS,
+    '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef'::BYTES32,
+    1000,
+    10
+);
+----
+1000	1009
+
+# Test pattern matching with max_results
+query I
+SELECT COUNT(*) FROM create2_mine(
+    '0x4e59b44847b379578588920cA78FbF26c0B4956C'::ADDRESS,
+    '0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890'::BYTES32,
+    0,
+    100000,
+    '0xff00000000000000000000000000000000000000'::ADDRESS,
+    '0x0000000000000000000000000000000000000000'::ADDRESS,
+    5
+);
+----
+5
+
+# Test consistency between predict and mine
+query I
+SELECT 
+    (SELECT address FROM create2_mine(
+        '0x4e59b44847b379578588920cA78FbF26c0B4956C'::ADDRESS,
+        '0xbc36789e7a1e281436464229828f817d6612f7b477d66591ff96a9e064bcc98a'::BYTES32,
+        42,
+        1
+    )) = 
+    create2_predict(
+        '0x4e59b44847b379578588920cA78FbF26c0B4956C'::ADDRESS,
+        42::BIGINT,
+        '0xbc36789e7a1e281436464229828f817d6612f7b477d66591ff96a9e064bcc98a'::BYTES32
+    );
+----
+true
