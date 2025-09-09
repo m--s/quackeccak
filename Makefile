@@ -5,8 +5,10 @@ EXT_CONFIG=${PROJ_DIR}/extension_config.cmake
 
 ifneq ($(filter wasm_mvp wasm_eh wasm_threads,$(MAKECMDGOALS)),)
     GEN=make
+    CMAKE_GENERATOR=Unix Makefiles
 else
     GEN=ninja
+    CMAKE_GENERATOR=Ninja
 endif
 
 include extension-ci-tools/makefiles/duckdb_extension.Makefile
