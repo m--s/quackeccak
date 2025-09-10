@@ -1,3 +1,8 @@
 {
-        "dependencies": []
+  "name": "quackeccak",
+  "version-string": "0.0.1",
+  "dependencies": [
+    "intx"
+  ],
+  "builtin-baseline": "912567f6fdd1883e07b070dcc0aa67cec072042a"
 }
