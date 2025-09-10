@@ -7,7 +7,7 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED TRUE)
 set(CMAKE_INCLUDE_CURRENT_DIR ON)
 
-find_package(intx CONFIG REQUIRED)
+include_directories(${CMAKE_CURRENT_SOURCE_DIR}/vendor)
 
 file(
     GLOB_RECURSE SUBDIRS
@@ -30,9 +30,6 @@ file(
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -I${CMAKE_CURRENT_SOURCE_DIR}/src")
 build_static_extension(${TARGET_NAME} ${EXTENSION_SOURCES})
 build_loadable_extension(${TARGET_NAME} " " ${EXTENSION_SOURCES})
-
-target_link_libraries(${EXTENSION_NAME} intx::intx)
-target_link_libraries(${LOADABLE_EXTENSION_NAME} intx::intx)
 
 if(WIN32)
     target_compile_definitions(

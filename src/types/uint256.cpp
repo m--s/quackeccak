@@ -2,7 +2,7 @@
 #include "duckdb/common/types/blob.hpp"
 #include "duckdb/function/scalar_function.hpp"
 #include "fixed_bytes_utils.hpp"
-#include <intx/intx.hpp>
+#include <intx.hpp>
 #include <cstring>
 
 namespace duckdb {
