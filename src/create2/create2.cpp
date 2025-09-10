@@ -10,6 +10,11 @@
 #include <atomic>
 #include <algorithm>
 
+#ifdef _MSC_VER
+#include <intrin.h>
+#define __builtin_popcount __popcnt
+#endif
+
 namespace duckdb {
 
 static LogicalType AddressType() {
