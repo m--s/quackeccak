@@ -28,16 +28,18 @@ build_loadable_extension(${TARGET_NAME} " " ${EXTENSION_SOURCES})
 
 if(WIN32)
     target_compile_definitions(${EXTENSION_NAME} PRIVATE 
-        SILENCE_STDEXT_ARR_ITERS_DEPRECATION_WARNING
-        SILENCE_ALL_MS_EXT_DEPRECATION_WARNINGS)
+        _SILENCE_STDEXT_ARR_ITERS_DEPRECATION_WARNING
+        _SILENCE_ALL_MS_EXT_DEPRECATION_WARNINGS)
     target_compile_definitions(${LOADABLE_EXTENSION_NAME} PRIVATE 
-        SILENCE_STDEXT_ARR_ITERS_DEPRECATION_WARNING
-        SILENCE_ALL_MS_EXT_DEPRECATION_WARNINGS)
+        _SILENCE_STDEXT_ARR_ITERS_DEPRECATION_WARNING
+        _SILENCE_ALL_MS_EXT_DEPRECATION_WARNINGS)
 endif()
 
 if(CMAKE_BUILD_TYPE STREQUAL "Release" OR CMAKE_BUILD_TYPE STREQUAL "RelWithDebInfo")
-    if(MSVC)
-        set(PERF_FLAGS "/O2")
+    if(WIN32 OR MSVC)
+        target_compile_options(${EXTENSION_NAME} PRIVATE /O2)
+        target_compile_options(${LOADABLE_EXTENSION_NAME} PRIVATE /O2)
+        message(STATUS "QuackECCAK: Release build with MSVC optimizations: /O2")
     else()
         set(PERF_FLAGS "-O3")
         if(NOT EMSCRIPTEN AND NOT CMAKE_CROSSCOMPILING)
@@ -51,11 +53,10 @@ if(CMAKE_BUILD_TYPE STREQUAL "Release" OR CMAKE_BUILD_TYPE STREQUAL "RelWithDebI
                 set(PERF_FLAGS "${PERF_FLAGS} -finline-functions")
             endif()
         endif()
+        set_target_properties(${EXTENSION_NAME} PROPERTIES COMPILE_FLAGS "${PERF_FLAGS}")
+        set_target_properties(${LOADABLE_EXTENSION_NAME} PROPERTIES COMPILE_FLAGS "${PERF_FLAGS}")
+        message(STATUS "QuackECCAK: Release build with optimizations: ${PERF_FLAGS}")
     endif()
-    
-    set_target_properties(${EXTENSION_NAME} PROPERTIES COMPILE_FLAGS "${PERF_FLAGS}")
-    set_target_properties(${LOADABLE_EXTENSION_NAME} PROPERTIES COMPILE_FLAGS "${PERF_FLAGS}")
-    message(STATUS "QuackECCAK: Release build with optimizations: ${PERF_FLAGS}")
 else()
     message(STATUS "QuackECCAK: Debug build - no optimizations")
 endif()

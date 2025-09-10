@@ -21,15 +21,17 @@ CMAKE_GENERATOR ?= $(shell which ninja >/dev/null 2>&1 && echo "Ninja" || echo "
 .PHONY: fix
 fix:
 	@echo "Fixing formatting..."
-	@find src -type f \( -name "*.cpp" -o -name "*.hpp" -o -name "*.h" -o -name "*.c" \) | xargs clang-format -i -style=file
+	@find src -type f \( -name "*.cpp" -o -name "*.hpp" -o -name "*.h" -o -name "*.c" \) -not -path "*/vendor/*" | xargs clang-format -i -style=file
 	@echo "Fixing linting issues..."
 	@if [ ! -d "build/release" ]; then \
 		echo "Building first to generate compile_commands.json..."; \
 		$(MAKE) release; \
 	fi
-	@find src -type f -name "*.cpp" | xargs clang-tidy \
+	@find src -type f -name "*.cpp" -not -path "*/vendor/*" | xargs clang-tidy \
 		-p build/release \
 		--fix \
 		--fix-errors \
+		--fix-notes \
+		--format-style=file \
 		--quiet 2>/dev/null || true
 	@echo "All fixes applied!"

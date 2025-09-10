@@ -69,9 +69,9 @@ static void Create2PredictFunction(DataChunk &args, ExpressionState &state, Vect
 		}
 
 		uint8_t address[20];
-		ComputeCreate2Address((const uint8_t *)deployer_data[deployer_idx].GetData(),
-		                      (const uint8_t *)salt_data[salt_idx].GetData(),
-		                      (const uint8_t *)init_hash_data[init_hash_idx].GetData(), address);
+		ComputeCreate2Address(reinterpret_cast<const uint8_t *>(deployer_data[deployer_idx].GetData()),
+		                      reinterpret_cast<const uint8_t *>(salt_data[salt_idx].GetData()),
+		                      reinterpret_cast<const uint8_t *>(init_hash_data[init_hash_idx].GetData()), address);
 
 		result_data[i] = StringVector::AddStringOrBlob(result, reinterpret_cast<const char *>(address), 20);
 	}
@@ -103,8 +103,8 @@ static void Create2PredictWithNumericSalt(DataChunk &args, ExpressionState &stat
 		SaltToBytes32(salt_data[salt_idx], salt_bytes);
 
 		uint8_t address[20];
-		ComputeCreate2Address((const uint8_t *)deployer_data[deployer_idx].GetData(), salt_bytes,
-		                      (const uint8_t *)init_hash_data[init_hash_idx].GetData(), address);
+		ComputeCreate2Address(reinterpret_cast<const uint8_t *>(deployer_data[deployer_idx].GetData()), salt_bytes,
+		                      reinterpret_cast<const uint8_t *>(init_hash_data[init_hash_idx].GetData()), address);
 
 		result_data[i] = StringVector::AddStringOrBlob(result, reinterpret_cast<const char *>(address), 20);
 	}
@@ -186,7 +186,7 @@ static void ProcessBatch(const uint8_t deployer[20], const uint8_t init_hash[32]
 				if (data->global_results_found.fetch_add(1) < data->max_results) {
 					std::array<uint8_t, 20> addr_array;
 					memcpy(addr_array.data(), addresses[i], 20);
-					results.push_back({batch_start + i, addr_array});
+					results.emplace_back(batch_start + i, addr_array);
 				} else {
 					return;
 				}
@@ -282,6 +282,7 @@ static void Create2MineFunction(ClientContext &context, TableFunctionInput &data
 			data.result_buffer = std::move(data.thread_results[0]);
 		} else {
 			std::vector<std::thread> workers;
+			workers.reserve(num_threads);
 			for (int i = 0; i < num_threads; i++) {
 				workers.emplace_back(Worker, &data, i);
 			}
@@ -310,7 +311,8 @@ static void Create2MineFunction(ClientContext &context, TableFunctionInput &data
 		auto &[salt, addr] = data.result_buffer[data.current_salt];
 
 		salt_data[result_idx] = salt;
-		address_data[result_idx] = StringVector::AddStringOrBlob(output.data[1], (const char *)addr.data(), 20);
+		address_data[result_idx] =
+		    StringVector::AddStringOrBlob(output.data[1], reinterpret_cast<const char *>(addr.data()), 20);
 
 		result_idx++;
 		data.current_salt++;
