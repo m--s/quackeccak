@@ -20,14 +20,28 @@ static LogicalType Bytes32Type() {
 	return t;
 }
 
+static LogicalType Uint256Type() {
+	LogicalType t(LogicalTypeId::BLOB);
+	t.SetAlias("UINT256");
+	return t;
+}
+
 void RegisterCrossTypeCasts(DatabaseInstance &db) {
-	// ADDRESS -> BYTES32 (pad left with zeros)
+	// ADDRESS -> BYTES32: Pads the 20-byte address with 12 zero bytes on the left
 	ExtensionUtil::RegisterCastFunction(db, AddressType(), Bytes32Type(),
 	                                    BoundCastInfo(CastBetweenFixedBytes<ADDRESS_SIZE, BYTES32_SIZE>), 50);
 
-	// BYTES32 -> ADDRESS (truncate or fail if non-zero bytes would be lost)
+	// BYTES32 -> ADDRESS: Takes the rightmost 20 bytes, fails if leftmost 12 bytes are non-zero
 	ExtensionUtil::RegisterCastFunction(db, Bytes32Type(), AddressType(),
 	                                    BoundCastInfo(CastBetweenFixedBytes<BYTES32_SIZE, ADDRESS_SIZE>), 50);
+
+	// ADDRESS -> UINT256: Zero-pads on the left to create a 256-bit integer
+	ExtensionUtil::RegisterCastFunction(db, AddressType(), Uint256Type(), BoundCastInfo(CastBetweenFixedBytes<20, 32>),
+	                                    1);
+
+	// UINT256 -> ADDRESS: Truncates to rightmost 160 bits (20 bytes)
+	ExtensionUtil::RegisterCastFunction(db, Uint256Type(), AddressType(), BoundCastInfo(CastBetweenFixedBytes<32, 20>),
+	                                    1);
 }
 
 } // namespace duckdb
