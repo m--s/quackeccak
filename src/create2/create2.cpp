@@ -4,7 +4,7 @@
 #include "duckdb/function/table_function.hpp"
 #include "duckdb/main/extension_util.hpp"
 #include "duckdb/common/types/string_type.hpp"
-#include "keccak_wrapper.hpp"
+#include "keccak.hpp"
 #include <cstring>
 #include <thread>
 #include <atomic>
@@ -29,27 +29,19 @@ static LogicalType Bytes32Type() {
 	return t;
 }
 
-static inline void ComputeCreate2Address(const uint8_t deployer[20], const uint8_t salt[32],
-                                         const uint8_t init_hash[32], uint8_t output[20]) {
-	alignas(64) uint8_t buffer[85];
-	buffer[0] = 0xff;
-	memcpy(buffer + 1, deployer, 20);
-	memcpy(buffer + 21, salt, 32);
-	memcpy(buffer + 53, init_hash, 32);
-
-	alignas(64) uint8_t hash[32];
-	KeccakWrapper::Hash256(buffer, 85, hash);
-	memcpy(output, hash + 12, 20);
-}
-
 static inline void SaltToBytes32(uint64_t salt, uint8_t output[32]) {
-	memset(output, 0, 32);
+	memset(output, 0, 24);
 	for (int i = 0; i < 8; i++) {
 		output[24 + i] = (salt >> (56 - i * 8)) & 0xFF;
 	}
 }
 
-// create2_predict
+static void ValidateAndCopyBlob(const string_t &blob, uint8_t *output, idx_t expected_size, const char *name) {
+	if (blob.GetSize() != expected_size) {
+		throw InvalidInputException("Invalid %s: expected %lld bytes, got %lld", name, expected_size, blob.GetSize());
+	}
+	memcpy(output, blob.GetData(), expected_size);
+}
 
 static void Create2PredictFunction(DataChunk &args, ExpressionState &state, Vector &result) {
 	UnifiedVectorFormat deployer_fmt, salt_fmt, init_hash_fmt;
@@ -73,10 +65,16 @@ static void Create2PredictFunction(DataChunk &args, ExpressionState &state, Vect
 			continue;
 		}
 
+		if (deployer_data[deployer_idx].GetSize() != 20 || salt_data[salt_idx].GetSize() != 32 ||
+		    init_hash_data[init_hash_idx].GetSize() != 32) {
+			FlatVector::SetNull(result, i, true);
+			continue;
+		}
+
 		uint8_t address[20];
-		ComputeCreate2Address(reinterpret_cast<const uint8_t *>(deployer_data[deployer_idx].GetData()),
-		                      reinterpret_cast<const uint8_t *>(salt_data[salt_idx].GetData()),
-		                      reinterpret_cast<const uint8_t *>(init_hash_data[init_hash_idx].GetData()), address);
+		Keccak::Create2(reinterpret_cast<const uint8_t *>(deployer_data[deployer_idx].GetData()),
+		                reinterpret_cast<const uint8_t *>(salt_data[salt_idx].GetData()),
+		                reinterpret_cast<const uint8_t *>(init_hash_data[init_hash_idx].GetData()), address);
 
 		result_data[i] = StringVector::AddStringOrBlob(result, reinterpret_cast<const char *>(address), 20);
 	}
@@ -104,118 +102,97 @@ static void Create2PredictWithNumericSalt(DataChunk &args, ExpressionState &stat
 			continue;
 		}
 
+		if (deployer_data[deployer_idx].GetSize() != 20 || init_hash_data[init_hash_idx].GetSize() != 32) {
+			FlatVector::SetNull(result, i, true);
+			continue;
+		}
+
 		uint8_t salt_bytes[32];
 		SaltToBytes32(salt_data[salt_idx], salt_bytes);
 
 		uint8_t address[20];
-		ComputeCreate2Address(reinterpret_cast<const uint8_t *>(deployer_data[deployer_idx].GetData()), salt_bytes,
-		                      reinterpret_cast<const uint8_t *>(init_hash_data[init_hash_idx].GetData()), address);
+		Keccak::Create2(reinterpret_cast<const uint8_t *>(deployer_data[deployer_idx].GetData()), salt_bytes,
+		                reinterpret_cast<const uint8_t *>(init_hash_data[init_hash_idx].GetData()), address);
 
 		result_data[i] = StringVector::AddStringOrBlob(result, reinterpret_cast<const char *>(address), 20);
 	}
 }
-
-// create2_mine
 
 struct Create2MineData : public TableFunctionData {
 	uint8_t deployer[20];
 	uint8_t init_hash[32];
 	uint64_t salt_start;
 	uint64_t salt_count;
-	uint64_t current_salt = 0;
-
 	uint8_t mask[20] = {0};
-	uint8_t value[20] = {0};
-	int priority_bytes[20];
-
+	uint8_t target[20] = {0};
 	uint64_t max_results = 100;
 	bool has_pattern = false;
-	bool finished = false;
+};
 
+struct Create2MineGlobalState : public GlobalTableFunctionState {
 	std::atomic<uint64_t> global_salt_counter {0};
 	std::atomic<uint64_t> global_results_found {0};
 	std::vector<std::pair<uint64_t, std::array<uint8_t, 20>>> result_buffer;
 	std::vector<std::vector<std::pair<uint64_t, std::array<uint8_t, 20>>>> thread_results;
-	bool workers_launched = false;
+	bool workers_finished = false;
+
+	idx_t MaxThreads() const override {
+		return 1;
+	}
 };
 
-static void CalculatePriorityBytes(const uint8_t *mask, int priority[20]) {
-	struct BytePriority {
-		int index;
-		int bits;
-	} priorities[20];
+struct Create2MineLocalState : public LocalTableFunctionState {
+	uint64_t current_salt = 0;
+	bool finished = false;
+};
 
+static inline bool AddressMatchesPattern(const uint8_t *addr, const uint8_t *mask, const uint8_t *target) {
 	for (int i = 0; i < 20; i++) {
-		priorities[i].index = i;
-		priorities[i].bits = __builtin_popcount(mask[i]);
-	}
-
-	std::sort(priorities, priorities + 20,
-	          [](const BytePriority &a, const BytePriority &b) { return a.bits > b.bits; });
-
-	for (int i = 0; i < 20; i++) {
-		priority[i] = priorities[i].index;
-	}
-}
-
-static inline bool AddressMatchesPattern(const uint8_t *addr, const uint8_t *mask, const uint8_t *value,
-                                         const int *priority) {
-	for (int i = 0; i < 20; i++) {
-		int idx = priority[i];
-		if (mask[idx] && ((addr[idx] & mask[idx]) != value[idx])) {
+		if ((addr[i] & mask[i]) != target[i]) {
 			return false;
 		}
 	}
 	return true;
 }
 
-static void ProcessBatch(const uint8_t deployer[20], const uint8_t init_hash[32], uint64_t salt_start,
-                         uint64_t salt_end, Create2MineData *data,
-                         std::vector<std::pair<uint64_t, std::array<uint8_t, 20>>> &results) {
-	constexpr int BATCH_SIZE = 32;
-	alignas(64) uint8_t salt_bytes[BATCH_SIZE][32];
-	alignas(64) uint8_t addresses[BATCH_SIZE][20];
+static void ProcessBatch(const Create2MineData *data, Create2MineGlobalState *gstate, uint64_t salt_start,
+                         uint64_t salt_end, std::vector<std::pair<uint64_t, std::array<uint8_t, 20>>> &results) {
+	uint8_t salt_bytes[32];
+	uint8_t address[20];
 
-	for (uint64_t batch_start = salt_start; batch_start < salt_end; batch_start += BATCH_SIZE) {
-		int count = std::min(BATCH_SIZE, (int)(salt_end - batch_start));
+	Keccak::Create2MiningContext ctx;
+	ctx.init(data->deployer, data->init_hash);
 
-		for (int i = 0; i < count; i++) {
-			SaltToBytes32(batch_start + i, salt_bytes[i]);
-			ComputeCreate2Address(deployer, salt_bytes[i], init_hash, addresses[i]);
-		}
+	for (uint64_t salt = salt_start; salt < salt_end; salt++) {
+		SaltToBytes32(salt, salt_bytes);
+		ctx.compute(salt_bytes, address);
 
-		for (int i = 0; i < count; i++) {
-			if (!data->has_pattern ||
-			    AddressMatchesPattern(addresses[i], data->mask, data->value, data->priority_bytes)) {
+		bool should_include = !data->has_pattern || AddressMatchesPattern(address, data->mask, data->target);
 
-				if (data->global_results_found.fetch_add(1) < data->max_results) {
-					std::array<uint8_t, 20> addr_array;
-					memcpy(addr_array.data(), addresses[i], 20);
-					results.emplace_back(batch_start + i, addr_array);
-				} else {
-					return;
-				}
+		if (should_include) {
+			if (gstate->global_results_found.fetch_add(1) < data->max_results) {
+				std::array<uint8_t, 20> addr_array;
+				memcpy(addr_array.data(), address, 20);
+				results.emplace_back(salt, addr_array);
+			} else {
+				return;
 			}
-		}
-
-		if (data->global_results_found >= data->max_results) {
-			return;
 		}
 	}
 }
 
-static void Worker(Create2MineData *data, int thread_id) {
-	constexpr uint64_t CHUNK_SIZE = 4096;
-	auto &results = data->thread_results[thread_id];
+static void Worker(const Create2MineData *data, Create2MineGlobalState *gstate, int thread_id) {
+	constexpr uint64_t CHUNK_SIZE = 16384;
+	auto &results = gstate->thread_results[thread_id];
 
 	while (true) {
-		uint64_t start = data->global_salt_counter.fetch_add(CHUNK_SIZE);
-		if (start >= data->salt_start + data->salt_count || data->global_results_found >= data->max_results) {
+		uint64_t start = gstate->global_salt_counter.fetch_add(CHUNK_SIZE);
+		if (start >= data->salt_start + data->salt_count || gstate->global_results_found >= data->max_results) {
 			break;
 		}
 
 		uint64_t end = std::min(start + CHUNK_SIZE, data->salt_start + data->salt_count);
-		ProcessBatch(data->deployer, data->init_hash, start, end, data, results);
+		ProcessBatch(data, gstate, start, end, results);
 	}
 }
 
@@ -223,108 +200,139 @@ static unique_ptr<FunctionData> Create2MineBind(ClientContext &context, TableFun
                                                 vector<LogicalType> &return_types, vector<string> &names) {
 	auto data = make_uniq<Create2MineData>();
 
+	if (input.inputs[0].IsNull() || input.inputs[1].IsNull()) {
+		throw InvalidInputException("Deployer and init_hash cannot be NULL");
+	}
+
 	auto deployer_blob = StringValue::Get(input.inputs[0]);
-	memcpy(data->deployer, deployer_blob.data(), 20);
+	ValidateAndCopyBlob(deployer_blob, data->deployer, 20, "deployer address");
 
 	auto init_hash_blob = StringValue::Get(input.inputs[1]);
-	memcpy(data->init_hash, init_hash_blob.data(), 32);
+	ValidateAndCopyBlob(init_hash_blob, data->init_hash, 32, "init_hash");
 
 	data->salt_start = input.inputs[2].IsNull() ? 0 : input.inputs[2].GetValue<uint64_t>();
 	data->salt_count = input.inputs[3].IsNull() ? 100 : input.inputs[3].GetValue<uint64_t>();
 
-	if (input.inputs.size() == 7) {
-		if (!input.inputs[4].IsNull()) {
-			auto mask_blob = StringValue::Get(input.inputs[4]);
-			memcpy(data->mask, mask_blob.data(), 20);
-			data->has_pattern = true;
-		}
+	if (input.inputs.size() == 7 && !input.inputs[4].IsNull() && !input.inputs[5].IsNull()) {
+		auto mask_blob = StringValue::Get(input.inputs[4]);
+		auto value_blob = StringValue::Get(input.inputs[5]);
 
-		if (!input.inputs[5].IsNull()) {
-			auto value_blob = StringValue::Get(input.inputs[5]);
-			memcpy(data->value, value_blob.data(), 20);
-			data->has_pattern = true;
+		ValidateAndCopyBlob(mask_blob, data->mask, 20, "mask");
+		ValidateAndCopyBlob(value_blob, data->target, 20, "value");
+
+		for (int i = 0; i < 20; i++) {
+			data->target[i] &= data->mask[i];
+			if (data->mask[i] != 0) {
+				data->has_pattern = true;
+			}
 		}
 
 		if (!input.inputs[6].IsNull()) {
 			data->max_results = input.inputs[6].GetValue<uint64_t>();
+			if (data->max_results == 0) {
+				throw InvalidInputException("max_results must be greater than 0");
+			}
 		}
 	}
 
-	if (data->has_pattern) {
-		CalculatePriorityBytes(data->mask, data->priority_bytes);
-	} else {
-		for (int i = 0; i < 20; i++) {
-			data->priority_bytes[i] = i;
-		}
-	}
-
-	data->global_salt_counter = data->salt_start;
-
-	return_types = {LogicalType::UBIGINT, AddressType()};
-	names = {"salt", "address"};
+	return_types = {AddressType(), LogicalType::UBIGINT, AddressType()};
+	names = {"deployer", "salt", "address"};
 
 	return std::move(data);
 }
 
-static void Create2MineFunction(ClientContext &context, TableFunctionInput &data_p, DataChunk &output) {
-	auto &data = data_p.bind_data->CastNoConst<Create2MineData>();
+static unique_ptr<GlobalTableFunctionState> Create2MineInit(ClientContext &, TableFunctionInitInput &input) {
+	auto gstate = make_uniq<Create2MineGlobalState>();
+	auto &data = input.bind_data->Cast<Create2MineData>();
 
-	if (data.finished) {
+	gstate->global_salt_counter = data.salt_start;
+
+	int num_threads = std::min((int)std::thread::hardware_concurrency(), std::max(1, (int)(data.salt_count / 10000)));
+	gstate->thread_results.resize(num_threads);
+
+	if (num_threads == 1) {
+		Worker(&data, gstate.get(), 0);
+		gstate->result_buffer = std::move(gstate->thread_results[0]);
+	} else {
+		std::vector<std::thread> workers;
+		workers.reserve(num_threads);
+
+		for (int i = 0; i < num_threads; i++) {
+			workers.emplace_back(Worker, &data, gstate.get(), i);
+		}
+
+		for (auto &w : workers) {
+			w.join();
+		}
+
+		for (auto &tr : gstate->thread_results) {
+			gstate->result_buffer.insert(gstate->result_buffer.end(), std::make_move_iterator(tr.begin()),
+			                             std::make_move_iterator(tr.end()));
+		}
+	}
+
+	std::sort(gstate->result_buffer.begin(), gstate->result_buffer.end());
+
+	if (gstate->result_buffer.size() > data.max_results) {
+		gstate->result_buffer.resize(data.max_results);
+	}
+
+	gstate->workers_finished = true;
+
+	return std::move(gstate);
+}
+
+static unique_ptr<LocalTableFunctionState>
+Create2MineLocalInit(ExecutionContext &context, TableFunctionInitInput &input, GlobalTableFunctionState *global_state) {
+	return make_uniq<Create2MineLocalState>();
+}
+
+static double Create2MineProgress(ClientContext &context, const FunctionData *bind_data_p,
+                                  const GlobalTableFunctionState *global_state) {
+	auto &data = bind_data_p->Cast<Create2MineData>();
+	auto &gstate = global_state->Cast<Create2MineGlobalState>();
+
+	if (data.salt_count == 0) {
+		return 100.0;
+	}
+
+	if (gstate.workers_finished) {
+		return 100.0;
+	}
+
+	uint64_t processed = gstate.global_salt_counter.load() - data.salt_start;
+	return std::min(100.0, (processed * 100.0) / data.salt_count);
+}
+
+static void Create2MineFunction(ClientContext &context, TableFunctionInput &data_p, DataChunk &output) {
+	auto &data = data_p.bind_data->Cast<Create2MineData>();
+	auto &gstate = data_p.global_state->Cast<Create2MineGlobalState>();
+	auto &lstate = data_p.local_state->Cast<Create2MineLocalState>();
+
+	if (lstate.finished) {
 		output.SetCardinality(0);
 		return;
 	}
 
-	if (!data.workers_launched) {
-		data.workers_launched = true;
-
-		int num_threads =
-		    std::min((int)std::thread::hardware_concurrency(), std::max(1, (int)(data.salt_count / 10000)));
-
-		data.thread_results.resize(num_threads);
-
-		if (num_threads == 1) {
-			Worker(&data, 0);
-			data.result_buffer = std::move(data.thread_results[0]);
-		} else {
-			std::vector<std::thread> workers;
-			workers.reserve(num_threads);
-			for (int i = 0; i < num_threads; i++) {
-				workers.emplace_back(Worker, &data, i);
-			}
-			for (auto &w : workers) {
-				w.join();
-			}
-
-			for (auto &tr : data.thread_results) {
-				data.result_buffer.insert(data.result_buffer.end(), std::make_move_iterator(tr.begin()),
-				                          std::make_move_iterator(tr.end()));
-			}
-		}
-
-		std::sort(data.result_buffer.begin(), data.result_buffer.end());
-
-		if (data.result_buffer.size() > data.max_results) {
-			data.result_buffer.resize(data.max_results);
-		}
-	}
-
-	auto salt_data = FlatVector::GetData<uint64_t>(output.data[0]);
-	auto address_data = FlatVector::GetData<string_t>(output.data[1]);
+	auto deployer_data = FlatVector::GetData<string_t>(output.data[0]);
+	auto salt_data = FlatVector::GetData<uint64_t>(output.data[1]);
+	auto address_data = FlatVector::GetData<string_t>(output.data[2]);
 
 	idx_t result_idx = 0;
-	while (result_idx < STANDARD_VECTOR_SIZE && data.current_salt < data.result_buffer.size()) {
-		auto &[salt, addr] = data.result_buffer[data.current_salt];
+	while (result_idx < STANDARD_VECTOR_SIZE && lstate.current_salt < gstate.result_buffer.size()) {
+		auto &[salt, addr] = gstate.result_buffer[lstate.current_salt];
 
+		deployer_data[result_idx] =
+		    StringVector::AddStringOrBlob(output.data[0], reinterpret_cast<const char *>(data.deployer), 20);
 		salt_data[result_idx] = salt;
 		address_data[result_idx] =
-		    StringVector::AddStringOrBlob(output.data[1], reinterpret_cast<const char *>(addr.data()), 20);
-
+		    StringVector::AddStringOrBlob(output.data[2], reinterpret_cast<const char *>(addr.data()), 20);
 		result_idx++;
-		data.current_salt++;
+		lstate.current_salt++;
 	}
 
-	if (data.current_salt >= data.result_buffer.size()) {
-		data.finished = true;
+	if (lstate.current_salt >= gstate.result_buffer.size()) {
+		lstate.finished = true;
 	}
 
 	output.SetCardinality(result_idx);
@@ -342,11 +350,15 @@ void RegisterCreate2Functions(DatabaseInstance &instance) {
 	TableFunctionSet create2_set("create2_mine");
 
 	TableFunction create2_mine_basic({AddressType(), Bytes32Type(), LogicalType::BIGINT, LogicalType::BIGINT},
-	                                 Create2MineFunction, Create2MineBind);
+	                                 Create2MineFunction, Create2MineBind, Create2MineInit);
+	create2_mine_basic.init_local = Create2MineLocalInit;
+	create2_mine_basic.table_scan_progress = Create2MineProgress;
 
 	TableFunction create2_mine_extended({AddressType(), Bytes32Type(), LogicalType::BIGINT, LogicalType::BIGINT,
 	                                     AddressType(), AddressType(), LogicalType::BIGINT},
-	                                    Create2MineFunction, Create2MineBind);
+	                                    Create2MineFunction, Create2MineBind, Create2MineInit);
+	create2_mine_extended.init_local = Create2MineLocalInit;
+	create2_mine_extended.table_scan_progress = Create2MineProgress;
 
 	create2_set.AddFunction(create2_mine_basic);
 	create2_set.AddFunction(create2_mine_extended);

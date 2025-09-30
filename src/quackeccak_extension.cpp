@@ -2,7 +2,8 @@
 
 #include "quackeccak_extension.hpp"
 #include "types/evm_types.hpp"
-#include "keccak/keccak.hpp"
+#include "keccak/keccak_functions.hpp"
+#include "abi/selectors.hpp"
 #include "create2.hpp"
 #include "duckdb.hpp"
 
@@ -12,6 +13,7 @@ static void LoadInternal(DatabaseInstance &instance) {
 	RegisterEvmTypes(instance);
 	RegisterKeccakFunctions(instance);
 	RegisterCreate2Functions(instance);
+	RegisterABISelectorFunctions(instance);
 }
 
 void QuackeccakExtension::Load(DuckDB &db) {

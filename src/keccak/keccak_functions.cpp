@@ -1,8 +1,8 @@
 #include "keccak.hpp"
+#include "keccak_functions.hpp"
 #include "duckdb/common/exception.hpp"
 #include "duckdb/function/scalar_function.hpp"
 #include "duckdb/main/extension_util.hpp"
-#include "./keccak_wrapper.hpp"
 #include "../types/bytes32.hpp"
 #include "../types/address.hpp"
 #include <vector>
@@ -82,7 +82,7 @@ static void Keccak256UnifiedFunction(DataChunk &args, ExpressionState &state, Ve
 
 		// Hash and store result
 		uint8_t hash[32];
-		KeccakWrapper::Hash256(buffer_ptr, total_size, hash);
+		Keccak::Hash256(buffer_ptr, total_size, hash);
 		result_data[row] = StringVector::AddStringOrBlob(result, reinterpret_cast<const char *>(hash), 32);
 	}
 }
@@ -135,10 +135,10 @@ static void Keccak256VarcharFunction(DataChunk &args, ExpressionState &state, Ve
 				hex_buffer[j] = static_cast<uint8_t>((hi << 4) | lo);
 			}
 
-			KeccakWrapper::Hash256(hex_buffer, byte_count, hash);
+			Keccak::Hash256(hex_buffer, byte_count, hash);
 		} else {
 			// Hash raw string bytes
-			KeccakWrapper::Hash256(reinterpret_cast<const uint8_t *>(data), len, hash);
+			Keccak::Hash256(reinterpret_cast<const uint8_t *>(data), len, hash);
 		}
 
 		result_data[i] = StringVector::AddStringOrBlob(result, reinterpret_cast<const char *>(hash), 32);
