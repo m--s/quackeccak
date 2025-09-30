@@ -6,7 +6,9 @@ set(LOADABLE_EXTENSION_NAME ${TARGET_NAME}_loadable_extension)
 project(${TARGET_NAME})
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED TRUE)
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
+include_directories(${CMAKE_CURRENT_SOURCE_DIR}/duckdb/third_party/yyjson/include)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/src)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/vendor)
 
@@ -17,53 +19,122 @@ foreach(DIR ${SRC_DIRS})
     endif()
 endforeach()
 
-file(GLOB_RECURSE EXTENSION_SOURCES 
-    src/*.cpp
-    src/*.c
-    vendor/*.c
+file(GLOB_RECURSE EXTENSION_SOURCES
+        src/*.cpp
+        src/*.c
+        vendor/*.c
 )
 
-build_static_extension(${TARGET_NAME} ${EXTENSION_SOURCES})
-build_loadable_extension(${TARGET_NAME} " " ${EXTENSION_SOURCES})
+# Called from DuckDB's build system - use their commands
+if(COMMAND build_static_extension)
+    message(STATUS "Building with DuckDB build system")
 
-if(WIN32)
-    target_compile_definitions(${EXTENSION_NAME} PRIVATE 
-        _SILENCE_STDEXT_ARR_ITERS_DEPRECATION_WARNING
-        _SILENCE_ALL_MS_EXT_DEPRECATION_WARNINGS)
-    target_compile_definitions(${LOADABLE_EXTENSION_NAME} PRIVATE 
-        _SILENCE_STDEXT_ARR_ITERS_DEPRECATION_WARNING
-        _SILENCE_ALL_MS_EXT_DEPRECATION_WARNINGS)
-endif()
+    build_static_extension(${TARGET_NAME} ${EXTENSION_SOURCES})
+    build_loadable_extension(${TARGET_NAME} " " ${EXTENSION_SOURCES})
 
-if(CMAKE_BUILD_TYPE STREQUAL "Release" OR CMAKE_BUILD_TYPE STREQUAL "RelWithDebInfo")
-    if(WIN32 OR MSVC)
-        target_compile_options(${EXTENSION_NAME} PRIVATE /O2)
-        target_compile_options(${LOADABLE_EXTENSION_NAME} PRIVATE /O2)
-        message(STATUS "QuackECCAK: Release build with MSVC optimizations: /O2")
-    else()
-        set(PERF_FLAGS "-O3")
-        if(NOT EMSCRIPTEN AND NOT CMAKE_CROSSCOMPILING)
-            include(CheckCXXCompilerFlag)
-            check_cxx_compiler_flag("-funroll-loops" COMPILER_SUPPORTS_UNROLL)
-            if(COMPILER_SUPPORTS_UNROLL)
-                set(PERF_FLAGS "${PERF_FLAGS} -funroll-loops")
-            endif()
-            check_cxx_compiler_flag("-finline-functions" COMPILER_SUPPORTS_INLINE)
-            if(COMPILER_SUPPORTS_INLINE)
-                set(PERF_FLAGS "${PERF_FLAGS} -finline-functions")
-            endif()
-        endif()
-        set_target_properties(${EXTENSION_NAME} PROPERTIES COMPILE_FLAGS "${PERF_FLAGS}")
-        set_target_properties(${LOADABLE_EXTENSION_NAME} PROPERTIES COMPILE_FLAGS "${PERF_FLAGS}")
-        message(STATUS "QuackECCAK: Release build with optimizations: ${PERF_FLAGS}")
+    if(WIN32)
+        target_compile_definitions(${EXTENSION_NAME} PRIVATE
+                _SILENCE_STDEXT_ARR_ITERS_DEPRECATION_WARNING
+                _SILENCE_ALL_MS_EXT_DEPRECATION_WARNINGS)
+        target_compile_definitions(${LOADABLE_EXTENSION_NAME} PRIVATE
+                _SILENCE_STDEXT_ARR_ITERS_DEPRECATION_WARNING
+                _SILENCE_ALL_MS_EXT_DEPRECATION_WARNINGS)
     endif()
-else()
-    message(STATUS "QuackECCAK: Debug build - no optimizations")
-endif()
 
-install(
-    TARGETS ${EXTENSION_NAME}
-    EXPORT "${DUCKDB_EXPORT_SET}"
-    LIBRARY DESTINATION "${INSTALL_LIB_DIR}"
-    ARCHIVE DESTINATION "${INSTALL_LIB_DIR}"
-)
+    if(CMAKE_BUILD_TYPE STREQUAL "Release" OR CMAKE_BUILD_TYPE STREQUAL "RelWithDebInfo")
+        if(WIN32 OR MSVC)
+            target_compile_options(${EXTENSION_NAME} PRIVATE /O2)
+            target_compile_options(${LOADABLE_EXTENSION_NAME} PRIVATE /O2)
+            message(STATUS "QuackECCAK: Release build with MSVC optimizations: /O2")
+        else()
+            set(PERF_FLAGS "-O3")
+            if(NOT EMSCRIPTEN AND NOT CMAKE_CROSSCOMPILING)
+                include(CheckCXXCompilerFlag)
+                check_cxx_compiler_flag("-funroll-loops" COMPILER_SUPPORTS_UNROLL)
+                if(COMPILER_SUPPORTS_UNROLL)
+                    set(PERF_FLAGS "${PERF_FLAGS} -funroll-loops")
+                endif()
+                check_cxx_compiler_flag("-finline-functions" COMPILER_SUPPORTS_INLINE)
+                if(COMPILER_SUPPORTS_INLINE)
+                    set(PERF_FLAGS "${PERF_FLAGS} -finline-functions")
+                endif()
+            endif()
+            set_target_properties(${EXTENSION_NAME} PROPERTIES COMPILE_FLAGS "${PERF_FLAGS}")
+            set_target_properties(${LOADABLE_EXTENSION_NAME} PROPERTIES COMPILE_FLAGS "${PERF_FLAGS}")
+            message(STATUS "QuackECCAK: Release build with optimizations: ${PERF_FLAGS}")
+        endif()
+    else()
+        message(STATUS "QuackECCAK: Debug build - no optimizations")
+    endif()
+
+    install(
+            TARGETS ${EXTENSION_NAME}
+            EXPORT "${DUCKDB_EXPORT_SET}"
+            LIBRARY DESTINATION "${INSTALL_LIB_DIR}"
+            ARCHIVE DESTINATION "${INSTALL_LIB_DIR}"
+    )
+
+else()
+    # Called directly by CLion - create IDE-only target
+    message(STATUS "Building with CLion IDE support (no DuckDB build functions)")
+
+    # Add DuckDB includes for IntelliSense
+    include_directories(
+            ${CMAKE_CURRENT_SOURCE_DIR}/duckdb/src/include
+            ${CMAKE_CURRENT_SOURCE_DIR}/duckdb/third_party/libpg_query/include
+    )
+
+    # Create library target for IDE features
+    add_library(${EXTENSION_NAME} OBJECT ${EXTENSION_SOURCES})
+
+    # Add compile definitions
+    target_compile_definitions(${EXTENSION_NAME} PRIVATE DUCKDB_EXTENSION_MAIN)
+
+    if(WIN32)
+        target_compile_definitions(${EXTENSION_NAME} PRIVATE
+                _SILENCE_STDEXT_ARR_ITERS_DEPRECATION_WARNING
+                _SILENCE_ALL_MS_EXT_DEPRECATION_WARNINGS)
+    endif()
+
+    add_custom_target(make_debug
+            COMMAND make debug
+            WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+            COMMENT "Building debug with DuckDB build system"
+            USES_TERMINAL
+    )
+
+    add_custom_target(make_release
+            COMMAND make release
+            WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+            COMMENT "Building release with DuckDB build system"
+            USES_TERMINAL
+    )
+
+    add_custom_target(make_clean
+            COMMAND make clean
+            WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+            COMMENT "Cleaning build artifacts"
+            USES_TERMINAL
+    )
+
+    add_custom_target(make_wasm
+            COMMAND bash -c "WASM_LOADABLE_EXTENSIONS=quackeccak DISABLE_EXTENSION_SIGNING=1 BUILD_EXTENSIONS_ONLY=1 GEN=ninja make wasm_eh"
+            WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+            COMMENT "Building WASM extension"
+            USES_TERMINAL
+    )
+
+    add_custom_target(make_fix
+            COMMAND make fix
+            WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+            COMMENT "Running clang-format and clang-tidy fixes"
+            USES_TERMINAL
+    )
+
+    add_custom_target(make_test
+            COMMAND make test
+            WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+            COMMENT "Running tests"
+            USES_TERMINAL
+    )
+endif()
