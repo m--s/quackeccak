@@ -73,6 +73,7 @@ static size_t BuildSignatureFromJson(const char *json_str, size_t json_len, char
 	}
 
 	buffer[offset++] = ')';
+	buffer[offset] = '\0';
 	yyjson_doc_free(doc);
 	return offset;
 }

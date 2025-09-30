@@ -301,7 +301,7 @@ static double Create2MineProgress(ClientContext &context, const FunctionData *bi
 	}
 
 	uint64_t processed = gstate.global_salt_counter.load() - data.salt_start;
-	return std::min(100.0, (processed * 100.0) / data.salt_count);
+	return std::min(100.0, (static_cast<double>(processed) * 100.0) / static_cast<double>(data.salt_count));
 }
 
 static void Create2MineFunction(ClientContext &context, TableFunctionInput &data_p, DataChunk &output) {

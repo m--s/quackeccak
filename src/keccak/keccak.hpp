@@ -17,8 +17,17 @@
 #endif
 #endif
 
+#if defined(_MSC_VER)
+#define QQ_MEMCPY std::memcpy
+#include <cstdlib>
+#define QQ_BSWAP64 _byteswap_uint64
+#else
+#define QQ_MEMCPY  __builtin_memcpy
+#define QQ_BSWAP64 __builtin_bswap64
+#endif
+
 #if defined(__BYTE_ORDER__) && __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
-#define to_le64(X) __builtin_bswap64(X)
+#define to_le64(X) QQ_BSWAP64(X)
 #else
 #define to_le64(X) (X)
 #endif
@@ -29,7 +38,7 @@ class Keccak {
 private:
 	static ALWAYS_INLINE uint64_t load_le(const uint8_t *__restrict__ data) {
 		uint64_t word;
-		__builtin_memcpy(&word, data, sizeof(word));
+		QQ_MEMCPY(&word, data, sizeof(word));
 		return to_le64(word);
 	}
 
@@ -288,7 +297,7 @@ public:
 
 		state[(rate_bytes / 8) - 1] ^= 0x8000000000000000ULL;
 		keccakf1600(state);
-		__builtin_memcpy(output, state, outputByteLen);
+		QQ_MEMCPY(output, state, outputByteLen);
 	}
 
 	static void Hash256(const uint8_t *input, size_t len, uint8_t output[32]) noexcept {
@@ -310,8 +319,8 @@ public:
 		ALWAYS_INLINE void init(const uint8_t *__restrict__ deployer, const uint8_t *__restrict__ init_hash) noexcept {
 			uint8_t buffer[53];
 			buffer[0] = 0xff;
-			__builtin_memcpy(buffer + 1, deployer, 20);
-			__builtin_memcpy(buffer + 21, init_hash, 32);
+			QQ_MEMCPY(buffer + 1, deployer, 20);
+			QQ_MEMCPY(buffer + 21, init_hash, 32);
 
 			base_state[0] = load_le(buffer);
 			base_state[1] = load_le(buffer + 8);
@@ -328,7 +337,7 @@ public:
 		[[gnu::always_inline, gnu::hot]]
 		ALWAYS_INLINE void compute(const uint8_t *__restrict__ salt, uint8_t *__restrict__ output) const noexcept {
 			alignas(64) uint64_t state[25];
-			__builtin_memcpy(state, base_state, sizeof(base_state));
+			QQ_MEMCPY(state, base_state, sizeof(base_state));
 
 			state[2] |= (uint64_t)salt[0] << 8 | (uint64_t)salt[1] << 16 | (uint64_t)salt[2] << 24 |
 			            (uint64_t)salt[3] << 32 | (uint64_t)salt[4] << 40 | (uint64_t)salt[5] << 48 |
@@ -343,7 +352,7 @@ public:
 			state[16] = 0x8000000000000000ULL;
 
 			keccakf1600(state);
-			__builtin_memcpy(output, reinterpret_cast<const uint8_t *>(state) + 12, 20);
+			QQ_MEMCPY(output, reinterpret_cast<const uint8_t *>(state) + 12, 20);
 		}
 	};
 };
