@@ -253,9 +253,8 @@ public:
 	static constexpr unsigned int CAPACITY = 512;
 	static constexpr uint8_t ETHEREUM_DELIMITER = 0x01; // For Ethereum, NOT 0x06!
 
-	static void compute(unsigned int rate, unsigned int capacity, const unsigned char *input,
-	                    uint64_t inputByteLen, unsigned char delimitedSuffix, unsigned char *output,
-	                    uint64_t outputByteLen) {
+	static void compute(unsigned int rate, unsigned int capacity, const unsigned char *input, uint64_t inputByteLen,
+	                    unsigned char delimitedSuffix, unsigned char *output, uint64_t outputByteLen) {
 		uint64_t state[25] = {0};
 		size_t rate_bytes = rate / 8;
 		const uint8_t *data = input;

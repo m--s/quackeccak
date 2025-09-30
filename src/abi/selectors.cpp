@@ -21,15 +21,14 @@ static LogicalType Bytes32Type() {
 
 static size_t BuildSignatureFromJson(const char *json_str, size_t json_len, char *buffer) {
 	using duckdb_yyjson::yyjson_doc;
-	using duckdb_yyjson::yyjson_val;
-	using duckdb_yyjson::yyjson_read;
-	using duckdb_yyjson::yyjson_doc_get_root;
-	using duckdb_yyjson::yyjson_obj_get;
-	using duckdb_yyjson::yyjson_is_str;
-	using duckdb_yyjson::yyjson_get_str;
 	using duckdb_yyjson::yyjson_doc_free;
+	using duckdb_yyjson::yyjson_doc_get_root;
+	using duckdb_yyjson::yyjson_get_str;
 	using duckdb_yyjson::yyjson_is_arr;
-	using duckdb_yyjson::yyjson_arr_foreach;
+	using duckdb_yyjson::yyjson_is_str;
+	using duckdb_yyjson::yyjson_obj_get;
+	using duckdb_yyjson::yyjson_read;
+	using duckdb_yyjson::yyjson_val;
 	size_t offset = 0;
 
 	yyjson_doc *doc = yyjson_read(json_str, json_len, 0);
